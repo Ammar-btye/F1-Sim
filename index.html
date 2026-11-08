@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f3ee" />
+    <meta name="description" content="An interactive view of the current Formula 1 circuit." />
+    <title>Everyone</title>
+  </head>
+  <body>
+    <main>
+      <section class="intro" aria-label="Welcome">
+        <h1>Everyone</h1>
+        <a class="scroll-cue" href="#track" aria-label="Explore the current track">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v15m-6-6 6 6 6-6" /></svg>
+        </a>
+      </section>
+      <section id="track" class="track" aria-label="Current track: Interlagos, São Paulo">
+        <canvas tabindex="0" role="img" aria-label="Interactive 3D Interlagos circuit. Drag to rotate, scroll or pinch to zoom, use arrow keys to rotate, plus and minus to zoom, or Home to reset."></canvas>
+        <button class="reset" aria-label="Reset track view">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 8a8 8 0 1 1-1 7M5 3v5h5" /></svg>
+        </button>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
