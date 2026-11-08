@@ -1,0 +1,17 @@
+../../../../../../../../../Users/ammar_hassan/Library/Caches/com.apple.python/private/var/folders/km/8qr0q81139q88k1v_m1pbccc0000gn/T/pip-target-i953oui1/lib/python/uv/__init__.cpython-39.pyc,,
+../../../../../../../../../Users/ammar_hassan/Library/Caches/com.apple.python/private/var/folders/km/8qr0q81139q88k1v_m1pbccc0000gn/T/pip-target-i953oui1/lib/python/uv/__main__.cpython-39.pyc,,
+../../../../../../../../../Users/ammar_hassan/Library/Caches/com.apple.python/private/var/folders/km/8qr0q81139q88k1v_m1pbccc0000gn/T/pip-target-i953oui1/lib/python/uv/_find_uv.cpython-39.pyc,,
+../../bin/uv,sha256=DzM4M6bQEXENPtwORbVdPZNK7xW7g6JbKYSMJBrFE7Q,27864912
+../../bin/uvx,sha256=UQTDyeTIqzuoS6dcLH6RhbXX6rBBSam6EHuTbJlksuE,334512
+uv-0.13.7.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+uv-0.13.7.dist-info/METADATA,sha256=UHwjs6nxFj9TbPIuZzd53vq2gxjILP-Nk1UddzwFbWI,11158
+uv-0.13.7.dist-info/RECORD,,
+uv-0.13.7.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+uv-0.13.7.dist-info/WHEEL,sha256=U927pSLvWHh5eaqcN5v72CdMm-HUWF344fKLe8HhSOU,102
+uv-0.13.7.dist-info/licenses/LICENSE-APACHE,sha256=xx0jnfkXJvxRnG63LTGOxlggYnIysveWIZ6H3PNdCrQ,11357
+uv-0.13.7.dist-info/licenses/LICENSE-MIT,sha256=hg49eoa4TmpwEsemNfxk30dc68bM403-tzpZguxYF2w,1077
+uv-0.13.7.dist-info/sboms/uv.cyclonedx.json,sha256=_YTnLx86lmdQ0-kZ9OdQk1sWoNhyKyZwcvyPNF5sTlE,780009
+uv/__init__.py,sha256=DLA95X6E43S_PG_aShLgH2Mx0Os_P31OmoGXrS2Mc30,778
+uv/__main__.py,sha256=Apkco79EqrcRs5YPRMA4NfwkzbYdknTg4IwZTdyUSQc,1211
+uv/_find_uv.py,sha256=CLps15bavfKFrHLOaw90f2g18Y3y4LC9ylI35o_qlKE,3139
+uv/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
