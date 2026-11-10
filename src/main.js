@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import circuit from './data/interlagos.json';
+import { loadCurrentTrack } from './track-api.js';
 import './style.css';
 
 const canvas = document.querySelector('canvas');
@@ -50,97 +51,142 @@ scene.add(sun);
 const model = new THREE.Group();
 model.rotation.y = -0.48;
 scene.add(model);
-const coordinates = circuit.features[0].geometry.coordinates.slice(0, -1);
-const longitudes = coordinates.map(([longitude]) => longitude);
-const latitudes = coordinates.map(([, latitude]) => latitude);
-const midLongitude = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
-const midLatitude = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
-const scale = 100 / (Math.max(...latitudes) - Math.min(...latitudes));
-const points = coordinates.map(([longitude, latitude]) => new THREE.Vector3(
-  (longitude - midLongitude) * Math.cos(midLatitude * Math.PI / 180) * scale,
-  0,
-  -(latitude - midLatitude) * scale,
-));
-const path = new THREE.CatmullRomCurve3(points, true, 'centripetal');
-const samples = path.getSpacedPoints(1600);
+// Render the bundled model immediately while the schedule API warms its cache.
+// Rebuild only the model when fresh circuit data arrives; keep camera controls.
+function buildTrack(circuit) {
+  const coordinates = circuit.features[0].geometry.coordinates.map(point => [...point]);
+  const first = coordinates[0];
+  const last = coordinates.at(-1);
+  if (first[0] === last[0] && first[1] === last[1]) coordinates.pop();
+  const longitudes = coordinates.map(([longitude]) => longitude);
+  const latitudes = coordinates.map(([, latitude]) => latitude);
+  const midLongitude = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
+  const midLatitude = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
+  const latitudeSpan = Math.max(...latitudes) - Math.min(...latitudes);
+  const longitudeFactor = Math.cos(midLatitude * Math.PI / 180);
+  const longitudeSpan = (Math.max(...longitudes) - Math.min(...longitudes)) * longitudeFactor;
+  const scale = Math.min(100 / Math.max(latitudeSpan, 0.000001), 66 / Math.max(longitudeSpan, 0.000001));
+  const points = coordinates.map(([longitude, latitude]) => new THREE.Vector3(
+    (longitude - midLongitude) * longitudeFactor * scale,
+    0,
+    -(latitude - midLatitude) * scale,
+  ));
+  const path = new THREE.CatmullRomCurve3(points, true, 'centripetal');
+  const samples = path.getSpacedPoints(1600);
 
-// A closed ribbon preserves the geographic outline without inflating tight corners.
-function ribbon(inner, outer, height, material, alternating = false) {
-  const vertices = [];
-  const colors = [];
-  const indices = [];
-  const red = new THREE.Color('#b54b3e');
-  const white = new THREE.Color('#e9e7d8');
-  for (let i = 0; i < samples.length; i++) {
-    const p = samples[i];
-    const tangent = path.getTangentAt(i / (samples.length - 1));
-    const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
-    for (const width of [inner, outer]) {
-      vertices.push(p.x + normal.x * width, height, p.z + normal.z * width);
-      const color = Math.floor(i / 5) % 2 ? red : white;
-      colors.push(color.r, color.g, color.b);
+  // A closed ribbon preserves the geographic outline without inflating tight corners.
+  function ribbon(inner, outer, height, material, alternating = false) {
+    const vertices = [];
+    const colors = [];
+    const indices = [];
+    const red = new THREE.Color('#b54b3e');
+    const white = new THREE.Color('#e9e7d8');
+    for (let i = 0; i < samples.length; i++) {
+      const p = samples[i];
+      const tangent = path.getTangentAt(i / (samples.length - 1));
+      const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
+      for (const width of [inner, outer]) {
+        vertices.push(p.x + normal.x * width, height, p.z + normal.z * width);
+        const color = Math.floor(i / 5) % 2 ? red : white;
+        colors.push(color.r, color.g, color.b);
+      }
+      if (i < samples.length - 1) {
+        const n = i * 2;
+        indices.push(n, n + 2, n + 1, n + 1, n + 2, n + 3);
+      }
     }
-    if (i < samples.length - 1) {
-      const n = i * 2;
-      indices.push(n, n + 2, n + 1, n + 1, n + 2, n + 3);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    if (alternating) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.receiveShadow = true;
+    model.add(mesh);
+  }
+
+  const material = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.DoubleSide });
+  ribbon(-1.6, 1.6, 0.04, material('#a5ac86'));
+  ribbon(-0.88, 0.88, 0.09, material('#e7e5d5'));
+  ribbon(-0.75, 0.75, 0.11, material('#343b39'));
+  const curbMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide });
+  ribbon(-1.02, -0.88, 0.12, curbMaterial, true);
+  ribbon(0.88, 1.02, 0.12, curbMaterial, true);
+
+  // A softly rounded plinth keeps the track readable as a physical model.
+  const baseShape = new THREE.Shape();
+  const width = 83;
+  const depth = 117;
+  const radius = 10;
+  baseShape.moveTo(-width / 2 + radius, -depth / 2);
+  baseShape.lineTo(width / 2 - radius, -depth / 2);
+  baseShape.quadraticCurveTo(width / 2, -depth / 2, width / 2, -depth / 2 + radius);
+  baseShape.lineTo(width / 2, depth / 2 - radius);
+  baseShape.quadraticCurveTo(width / 2, depth / 2, width / 2 - radius, depth / 2);
+  baseShape.lineTo(-width / 2 + radius, depth / 2);
+  baseShape.quadraticCurveTo(-width / 2, depth / 2, -width / 2, depth / 2 - radius);
+  baseShape.lineTo(-width / 2, -depth / 2 + radius);
+  baseShape.quadraticCurveTo(-width / 2, -depth / 2, -width / 2 + radius, -depth / 2);
+  const baseGeometry = new THREE.ExtrudeGeometry(baseShape, {
+    depth: 3, bevelEnabled: true, bevelThickness: 0.65, bevelSize: 0.65, bevelSegments: 4, steps: 1, curveSegments: 16,
+  });
+  baseGeometry.rotateX(-Math.PI / 2);
+  baseGeometry.translate(0, -3.65, 0);
+  const base = new THREE.Mesh(baseGeometry, [material('#87936b'), material('#687557')]);
+  base.castShadow = true;
+  base.receiveShadow = true;
+  model.add(base);
+
+  // A small checkered start line, aligned to the first geographic coordinate.
+  const start = path.getPointAt(0);
+  const direction = path.getTangentAt(0);
+  for (let row = 0; row < 2; row++) {
+    for (let column = 0; column < 8; column++) {
+      const tile = new THREE.Mesh(new THREE.PlaneGeometry(0.19, 0.19), material((row + column) % 2 ? '#ecebdf' : '#292e2d'));
+      tile.rotation.x = -Math.PI / 2;
+      const across = (column - 3.5) * 0.19;
+      const along = (row - 0.5) * 0.19;
+      tile.position.set(start.x - direction.z * across + direction.x * along, 0.14, start.z + direction.x * across + direction.z * along);
+      tile.rotation.z = -Math.atan2(direction.z, direction.x) + Math.PI / 2;
+      model.add(tile);
     }
   }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  if (alternating) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.receiveShadow = true;
-  model.add(mesh);
 }
 
-const material = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.DoubleSide });
-ribbon(-1.6, 1.6, 0.04, material('#a5ac86'));
-ribbon(-0.88, 0.88, 0.09, material('#e7e5d5'));
-ribbon(-0.75, 0.75, 0.11, material('#343b39'));
-const curbMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide });
-ribbon(-1.02, -0.88, 0.12, curbMaterial, true);
-ribbon(0.88, 1.02, 0.12, curbMaterial, true);
+function replaceTrack(circuit) {
+  const geometries = new Set();
+  const materials = new Set();
+  model.traverse(node => {
+    if (node.geometry) geometries.add(node.geometry);
+    if (node.material) {
+      for (const material of Array.isArray(node.material) ? node.material : [node.material]) materials.add(material);
+    }
+  });
+  model.clear();
+  geometries.forEach(geometry => geometry.dispose());
+  materials.forEach(material => material.dispose());
+  buildTrack(circuit);
+}
 
-// A softly rounded plinth keeps the track readable as a physical model.
-const baseShape = new THREE.Shape();
-const width = 83;
-const depth = 117;
-const radius = 10;
-baseShape.moveTo(-width / 2 + radius, -depth / 2);
-baseShape.lineTo(width / 2 - radius, -depth / 2);
-baseShape.quadraticCurveTo(width / 2, -depth / 2, width / 2, -depth / 2 + radius);
-baseShape.lineTo(width / 2, depth / 2 - radius);
-baseShape.quadraticCurveTo(width / 2, depth / 2, width / 2 - radius, depth / 2);
-baseShape.lineTo(-width / 2 + radius, depth / 2);
-baseShape.quadraticCurveTo(-width / 2, depth / 2, -width / 2, depth / 2 - radius);
-baseShape.lineTo(-width / 2, -depth / 2 + radius);
-baseShape.quadraticCurveTo(-width / 2, -depth / 2, -width / 2 + radius, -depth / 2);
-const baseGeometry = new THREE.ExtrudeGeometry(baseShape, {
-  depth: 3, bevelEnabled: true, bevelThickness: 0.65, bevelSize: 0.65, bevelSegments: 4, steps: 1, curveSegments: 16,
-});
-baseGeometry.rotateX(-Math.PI / 2);
-baseGeometry.translate(0, -3.65, 0);
-const base = new THREE.Mesh(baseGeometry, [material('#87936b'), material('#687557')]);
-base.castShadow = true;
-base.receiveShadow = true;
-model.add(base);
-
-// A small checkered start line, aligned to the first geographic coordinate.
-const start = path.getPointAt(0);
-const direction = path.getTangentAt(0);
-for (let row = 0; row < 2; row++) {
-  for (let column = 0; column < 8; column++) {
-    const tile = new THREE.Mesh(new THREE.PlaneGeometry(0.19, 0.19), material((row + column) % 2 ? '#ecebdf' : '#292e2d'));
-    tile.rotation.x = -Math.PI / 2;
-    const across = (column - 3.5) * 0.19;
-    const along = (row - 0.5) * 0.19;
-    tile.position.set(start.x - direction.z * across + direction.x * along, 0.14, start.z + direction.x * across + direction.z * along);
-    tile.rotation.z = -Math.atan2(direction.z, direction.x) + Math.PI / 2;
-    model.add(tile);
+buildTrack(circuit);
+async function refreshTrack() {
+  try {
+    const data = await loadCurrentTrack();
+    const feature = data.circuit.features[0];
+    if (section.dataset.circuit !== feature.properties.id) replaceTrack(data.circuit);
+    section.dataset.circuit = feature.properties.id;
+    section.dataset.source = 'fastf1';
+    section.setAttribute('aria-label', `Current track: ${feature.properties.Name}, ${data.event.location}`);
+    canvas.setAttribute('aria-label', `Interactive 3D ${feature.properties.Name} circuit. Drag to rotate, scroll or pinch to zoom, use arrow keys to rotate, plus and minus to zoom, or Home to reset.`);
+  } catch (error) {
+    // Retain the last valid model, without claiming it is the current circuit.
+    section.dataset.source = section.dataset.source || 'bundled-fallback';
+    section.setAttribute('aria-label', 'Track preview (current schedule unavailable)');
+    console.warn('Current track could not be refreshed; retaining the track preview.', error);
   }
 }
+void refreshTrack();
+setInterval(() => { if (!document.hidden) void refreshTrack(); }, 300000);
 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.ShadowMaterial({ opacity: 0.12 }));
 ground.rotation.x = -Math.PI / 2;

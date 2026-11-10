@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/dev.mjs",
+    "dev:frontend": "vite --host 127.0.0.1",
+    "dev:api": ".venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000",
+    "test:api": ".venv/bin/python -m unittest discover -s backend/tests",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
