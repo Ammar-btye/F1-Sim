@@ -10,8 +10,6 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 600);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.35;
@@ -37,15 +35,9 @@ controls.addEventListener('start', () => canvas.classList.add('dragging'));
 controls.addEventListener('end', () => canvas.classList.remove('dragging'));
 canvas.addEventListener('pointerdown', () => canvas.focus({ preventScroll: true }));
 
-scene.add(new THREE.HemisphereLight(0xfffcf3, 0x707d5d, 3));
+scene.add(new THREE.HemisphereLight(0xfffcf3, 0x85857d, 3));
 const sun = new THREE.DirectionalLight(0xfff8e9, 4);
 sun.position.set(-45, 90, 35);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 220 });
-sun.shadow.normalBias = 0.08;
-sun.shadow.bias = -0.0001;
-sun.shadow.radius = 4;
 scene.add(sun);
 
 const model = new THREE.Group();
@@ -101,41 +93,15 @@ function buildTrack(circuit) {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.receiveShadow = true;
     model.add(mesh);
   }
 
   const material = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.DoubleSide });
-  ribbon(-1.6, 1.6, 0.04, material('#a5ac86'));
   ribbon(-0.88, 0.88, 0.09, material('#e7e5d5'));
   ribbon(-0.75, 0.75, 0.11, material('#343b39'));
   const curbMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide });
   ribbon(-1.02, -0.88, 0.12, curbMaterial, true);
   ribbon(0.88, 1.02, 0.12, curbMaterial, true);
-
-  // A softly rounded plinth keeps the track readable as a physical model.
-  const baseShape = new THREE.Shape();
-  const width = 83;
-  const depth = 117;
-  const radius = 10;
-  baseShape.moveTo(-width / 2 + radius, -depth / 2);
-  baseShape.lineTo(width / 2 - radius, -depth / 2);
-  baseShape.quadraticCurveTo(width / 2, -depth / 2, width / 2, -depth / 2 + radius);
-  baseShape.lineTo(width / 2, depth / 2 - radius);
-  baseShape.quadraticCurveTo(width / 2, depth / 2, width / 2 - radius, depth / 2);
-  baseShape.lineTo(-width / 2 + radius, depth / 2);
-  baseShape.quadraticCurveTo(-width / 2, depth / 2, -width / 2, depth / 2 - radius);
-  baseShape.lineTo(-width / 2, -depth / 2 + radius);
-  baseShape.quadraticCurveTo(-width / 2, -depth / 2, -width / 2 + radius, -depth / 2);
-  const baseGeometry = new THREE.ExtrudeGeometry(baseShape, {
-    depth: 3, bevelEnabled: true, bevelThickness: 0.65, bevelSize: 0.65, bevelSegments: 4, steps: 1, curveSegments: 16,
-  });
-  baseGeometry.rotateX(-Math.PI / 2);
-  baseGeometry.translate(0, -3.65, 0);
-  const base = new THREE.Mesh(baseGeometry, [material('#87936b'), material('#687557')]);
-  base.castShadow = true;
-  base.receiveShadow = true;
-  model.add(base);
 
   // A small checkered start line, aligned to the first geographic coordinate.
   const start = path.getPointAt(0);
@@ -187,12 +153,6 @@ async function refreshTrack() {
 }
 void refreshTrack();
 setInterval(() => { if (!document.hidden) void refreshTrack(); }, 300000);
-
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.ShadowMaterial({ opacity: 0.12 }));
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -4.35;
-ground.receiveShadow = true;
-scene.add(ground);
 
 function resetView() {
   controls.target.set(0, 0, 0);
