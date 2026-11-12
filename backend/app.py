@@ -9,6 +9,7 @@ from time import monotonic
 import unicodedata
 
 import fastf1
+from fastf1.ergast import Ergast
 from fastapi import FastAPI, HTTPException, Path as PathParam
 from fastapi.staticfiles import StaticFiles
 import pandas as pd
@@ -25,6 +26,8 @@ with (ROOT / 'backend' / 'data' / 'circuits.geojson').open() as source:
 
 _schedules = {}
 _schedule_lock = Lock()
+_standings = {}
+_standings_lock = Lock()
 
 
 def timestamp(value):
@@ -145,6 +148,40 @@ def current_track():
         'event': event,
         'circuit': {'type': 'FeatureCollection', 'features': [feature]},
     }
+
+
+@app.get('/api/standings/drivers')
+def driver_standings():
+    year = datetime.now(timezone.utc).year
+    with _standings_lock:
+        cached = _standings.get(year)
+        if cached and monotonic() - cached[0] < 3600:
+            return cached[1]
+        try:
+            result = Ergast().get_driver_standings(
+                season=year, round='last', result_type='raw', auto_cast=False, limit=100)
+            drivers = []
+            if result:
+                for entry in result[0]['DriverStandings']:
+                    driver = entry['Driver']
+                    drivers.append({
+                        'position': int(entry['position']),
+                        'name': f"{driver['givenName']} {driver['familyName']}",
+                        'code': driver.get('code', ''),
+                        'team': ' / '.join(team['name'] for team in entry['Constructors']),
+                        'points': float(entry['points']),
+                        'wins': int(entry['wins']),
+                    })
+            data = {
+                'source': 'jolpica-f1', 'year': year,
+                'round': int(result[0]['round']) if result else None,
+                'drivers': sorted(drivers, key=lambda driver: driver['position']),
+            }
+        except Exception as error:
+            logger.warning('Driver standings unavailable for %s: %s', year, error)
+            raise HTTPException(503, 'Driver standings are temporarily unavailable') from error
+        _standings[year] = (monotonic(), data)
+        return data
 
 
 # `npm run build` + uvicorn serves frontend and API together in production.

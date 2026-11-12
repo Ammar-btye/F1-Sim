@@ -4,7 +4,7 @@ F1 Sim is an intermediate-level Formula 1 race strategy simulator designed to op
 
 The simulator will focus on evaluating pit-stop timing and tire compound selection as race conditions evolve, allowing users to compare strategies and adapt their decisions during a simulated race.
 
-The initial website is a minimal two-section layout: “Everyone”, followed by an interactive 3D circuit. There is no other visible text.
+The website opens with “Everyone”, followed by an interactive 3D circuit and a driver championship standings table with positions, drivers, teams, wins, and points.
 
 Requires Node.js 20.19+ or 22.12+, and Python 3.10+.
 
@@ -30,8 +30,11 @@ API endpoints:
 - `GET /api/health` — backend status and installed FastF1 version.
 - `GET /api/events/{year}` — race weekends and session timestamps, from 2018 onwards.
 - `GET /api/track/current` — selected event and its GeoJSON circuit outline.
+- `GET /api/standings/drivers` — latest current-season driver standings via FastF1's Jolpica client, cached hourly.
 - `/docs` — interactive API documentation.
 
 Run `npm run test:api` for API integration and calendar-selection tests, and `npm run build` to check the frontend.
+
+Driver standings refresh every five minutes while the page is visible. The table labels its season and completed round, supports fractional points, and shows an empty state before standings are published. On a failed refresh it retains the last loaded results and offers a retry button. Standings require the Python API and internet access to Jolpica F1.
 
 Circuit geometry: [Tomislav Bacinger / f1-circuits](https://github.com/bacinger/f1-circuits), distributed under the MIT license; see `licenses/f1-circuits.txt`.

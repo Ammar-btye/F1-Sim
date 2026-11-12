@@ -20,6 +20,7 @@ def row(round_number=20, location='São Paulo', date='2026-11-08 17:00:00'):
 class ApiTests(TestCase):
     def setUp(self):
         api._schedules.clear()
+        api._standings.clear()
         self.client = TestClient(api.app)
 
     def test_current_weekend_returns_real_geometry_and_metadata(self):
@@ -81,3 +82,39 @@ class ApiTests(TestCase):
     def test_calendar_location_aliases_resolve(self):
         for location in ['São Paulo', 'Spa-Francorchamps', 'Yas Island', 'Marina Bay', 'Lusail', 'Miami Gardens', 'Kuala Lumpur']:
             self.assertEqual(api.find_circuit({'location': location})['geometry']['type'], 'LineString')
+
+    def test_driver_standings_are_normalized_sorted_and_cached(self):
+        result = [{'season': '2026', 'round': '3', 'DriverStandings': [
+            {'position': '2', 'points': '37.5', 'wins': '0',
+             'Driver': {'givenName': 'Second', 'familyName': 'Driver'},
+             'Constructors': [{'name': 'Team A'}, {'name': 'Team B'}]},
+            {'position': '1', 'points': '62', 'wins': '2',
+             'Driver': {'givenName': 'First', 'familyName': 'Driver', 'code': 'FIR'},
+             'Constructors': [{'name': 'Team C'}]},
+        ]}]
+        with patch.object(api.Ergast, 'get_driver_standings', return_value=result) as load:
+            with patch.object(api, 'datetime', wraps=datetime) as clock:
+                clock.now.return_value = datetime(2026, 4, 1, tzinfo=timezone.utc)
+                response = self.client.get('/api/standings/drivers')
+                self.assertEqual(self.client.get('/api/standings/drivers').json(), response.json())
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual((data['year'], data['round']), (2026, 3))
+        self.assertEqual([driver['position'] for driver in data['drivers']], [1, 2])
+        self.assertEqual(data['drivers'][1]['points'], 37.5)
+        self.assertEqual(data['drivers'][1]['team'], 'Team A / Team B')
+        self.assertEqual(data['drivers'][0]['name'], 'First Driver')
+        load.assert_called_once_with(season=2026, round='last', result_type='raw', auto_cast=False, limit=100)
+
+    def test_driver_standings_before_first_race_are_empty(self):
+        with patch.object(api.Ergast, 'get_driver_standings', return_value=[]):
+            response = self.client.get('/api/standings/drivers')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['drivers'], [])
+        self.assertIsNone(response.json()['round'])
+
+    def test_driver_standings_outage_can_be_retried(self):
+        with patch.object(api.Ergast, 'get_driver_standings', side_effect=RuntimeError('offline')):
+            self.assertEqual(self.client.get('/api/standings/drivers').status_code, 503)
+        with patch.object(api.Ergast, 'get_driver_standings', return_value=[]):
+            self.assertEqual(self.client.get('/api/standings/drivers').status_code, 200)

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f4f3ee" />
-    <meta name="description" content="An interactive view of the current Formula 1 circuit." />
+    <meta name="description" content="Explore the current Formula 1 circuit and driver championship standings." />
     <title>Everyone</title>
   </head>
   <body>
@@ -21,7 +21,27 @@
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 8a8 8 0 1 1-1 7M5 3v5h5" /></svg>
         </button>
       </section>
+      <section class="standings" aria-labelledby="standings-title">
+        <header class="standings-header">
+          <div>
+            <p class="eyebrow">Formula 1 · World Championship</p>
+            <h2 id="standings-title">Driver standings</h2>
+          </div>
+          <p id="standings-season" class="standings-season"></p>
+        </header>
+        <p id="standings-status" class="standings-status" role="status">Loading standings…</p>
+        <button id="standings-retry" class="standings-retry" hidden>Retry</button>
+        <div id="standings-table-wrap" class="standings-table-wrap" hidden>
+          <table>
+            <caption class="sr-only">Formula 1 driver championship standings</caption>
+            <thead><tr><th scope="col">Pos</th><th scope="col">Driver</th><th scope="col">Team</th><th scope="col" class="numeric">Wins</th><th scope="col" class="numeric">Points</th></tr></thead>
+            <tbody id="standings-body"></tbody>
+          </table>
+        </div>
+        <p class="standings-source">Latest published standings · <a href="https://jolpi.ca/" target="_blank" rel="noreferrer">Jolpica F1</a></p>
+      </section>
     </main>
+    <script type="module" src="/src/standings.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
